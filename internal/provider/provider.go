@@ -3,6 +3,11 @@ package provider
 import (
 	"context"
 	"fmt"
+	"github.com/hashicorp/terraform-plugin-framework/path"
+	"github.com/scylladb/scylla-go-driver/frame"
+	"github.com/scylladb/scylla-go-driver/transport"
+	"net"
+	"strings"
 
 	"github.com/hashicorp/terraform-plugin-framework/diag"
 	"github.com/hashicorp/terraform-plugin-framework/tfsdk"
@@ -15,12 +20,14 @@ var _ tfsdk.Provider = &provider{}
 // provider satisfies the tfsdk.Provider interface and usually is included
 // with all Resource and DataSource implementations.
 type provider struct {
-	// client can contain the upstream provider SDK or HTTP client used to
-	// communicate with the upstream service. Resource and DataSource
-	// implementations can then make calls using this client.
-	//
-	// TODO: If appropriate, implement upstream provider SDK or HTTP client.
-	// client vendorsdk.ExampleClient
+	// conn is used to execute the queries.
+	conn *transport.Conn
+
+	// hosts is used to establish connection.
+	hosts []string
+
+	// connConnfig holds settings for creating connection.
+	connConfig transport.ConnConfig
 
 	// configured is set to true at the end of the Configure method.
 	// This can be used in Resource and DataSource implementations to verify
@@ -35,7 +42,9 @@ type provider struct {
 
 // providerData can be used to store data from the Terraform configuration.
 type providerData struct {
-	Example types.String `tfsdk:"example"`
+	Hosts    types.String `tfsdk:"hosts"`
+	Username types.String `tfsdk:"username"`
+	Password types.String `tfsdk:"password"`
 }
 
 func (p *provider) Configure(ctx context.Context, req tfsdk.ConfigureProviderRequest, resp *tfsdk.ConfigureProviderResponse) {
@@ -47,8 +56,22 @@ func (p *provider) Configure(ctx context.Context, req tfsdk.ConfigureProviderReq
 		return
 	}
 
-	// Configuration values are now available.
-	// if data.Example.Null { /* ... */ }
+	if data.Hosts.Value == "" {
+		resp.Diagnostics.AddAttributeError(path.Root("hosts"), "No hosts configured",
+			"The hosts field must contain at least one host to connect to")
+	} else {
+		for _, hostport := range strings.Split(data.Hosts.Value, ",") {
+			p.hosts = append(p.hosts, addDefaultPort(hostport))
+		}
+	}
+
+	if !data.Username.IsNull() {
+		p.connConfig.Username = data.Username.Value
+	}
+
+	if !data.Password.IsNull() {
+		p.connConfig.Password = data.Password.Value
+	}
 
 	// If the upstream provider SDK or HTTP client requires configuration, such
 	// as authentication or logging, this is a great opportunity to do so.
@@ -56,28 +79,86 @@ func (p *provider) Configure(ctx context.Context, req tfsdk.ConfigureProviderReq
 	p.configured = true
 }
 
+func addDefaultPort(hostport string) string {
+	_, _, err := net.SplitHostPort(hostport)
+	if err == nil {
+		// There already is host and port.
+		return hostport
+	}
+	return net.JoinHostPort(hostport, "9042")
+}
+
 func (p *provider) GetResources(ctx context.Context) (map[string]tfsdk.ResourceType, diag.Diagnostics) {
 	return map[string]tfsdk.ResourceType{
-		"scaffolding_example": exampleResourceType{},
+		"scylla_example": exampleResourceType{},
+		"scylla_role":    roleResourceType{},
 	}, nil
 }
 
 func (p *provider) GetDataSources(ctx context.Context) (map[string]tfsdk.DataSourceType, diag.Diagnostics) {
 	return map[string]tfsdk.DataSourceType{
-		"scaffolding_example": exampleDataSourceType{},
+		"scylla_example": exampleDataSourceType{},
 	}, nil
 }
 
 func (p *provider) GetSchema(ctx context.Context) (tfsdk.Schema, diag.Diagnostics) {
 	return tfsdk.Schema{
 		Attributes: map[string]tfsdk.Attribute{
-			"example": {
-				MarkdownDescription: "Example provider attribute",
+			"hosts": {
+				MarkdownDescription: "Host or hosts to connect to",
 				Optional:            true,
 				Type:                types.StringType,
 			},
+			"username": {
+				MarkdownDescription: "Username for authentication",
+				Optional:            true,
+				Type:                types.StringType,
+			},
+			"password": {
+				MarkdownDescription: "Password for authentication",
+				Optional:            true,
+				Type:                types.StringType,
+				Sensitive:           true,
+			},
 		},
 	}, nil
+}
+
+func (p *provider) initConn() error {
+	if p.conn != nil {
+		return nil
+	}
+	var lastErr error
+	for _, hostport := range p.hosts {
+		conn, err := transport.OpenConn(hostport, nil, p.connConfig)
+		if err != nil {
+			lastErr = err
+			continue
+		}
+		p.conn = conn
+		return nil
+	}
+	return lastErr
+}
+
+func (p *provider) execute(query string, values []frame.CqlValue) (transport.QueryResult, error) {
+	err := p.initConn()
+	if err != nil {
+		return transport.QueryResult{}, err
+	}
+	frameValues := make([]frame.Value, len(values))
+	for i := range values {
+		frameValues[i].N = frame.Int(len(values[i].Value))
+		frameValues[i].Bytes = values[i].Value
+	}
+	stmt := transport.Statement{
+		Content:     query,
+		Values:      frameValues,
+		PageSize:    0,
+		Consistency: frame.ONE,
+	}
+
+	return p.conn.Query(stmt, nil)
 }
 
 func New(version string) func() tfsdk.Provider {
