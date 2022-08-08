@@ -45,15 +45,13 @@ func (t roleResourceType) GetSchema(ctx context.Context) (tfsdk.Schema, diag.Dia
 			},
 			"login": {
 				MarkdownDescription: "Indicates whether the role is allowed to login. Defaults to false.",
-				Optional:            true,
+				Required:            true,
 				Type:                types.BoolType,
-				Computed:            true,
 			},
 			"superuser": {
 				MarkdownDescription: "Indicates whether the user has all permissions. Defaults to false.",
-				Optional:            true,
+				Required:            true,
 				Type:                types.BoolType,
-				Computed:            true,
 			},
 			"password": {
 				MarkdownDescription: "Password of the user.",
