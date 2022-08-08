@@ -102,7 +102,6 @@ func (r roleResource) Create(ctx context.Context, req tfsdk.CreateResourceReques
 	data.Id = data.Name
 
 	var stmt qb.Builder
-
 	stmt.Appendf("CREATE ROLE %s", qb.QName(data.Name.Value))
 	stmt.Appendf(" WITH LOGIN = %s", qb.Bool(data.Login.Value))
 	stmt.Appendf(" AND SUPERUSER = %s", qb.Bool(data.Superuser.Value))
@@ -135,7 +134,7 @@ func (r roleResource) Read(ctx context.Context, req tfsdk.ReadResourceRequest, r
 		return
 	}
 
-	cqlName, err := frame.CqlFromASCII(data.Name.Value)
+	cqlName, err := frame.CqlFromASCII(data.Id.Value)
 	if err != nil {
 		resp.Diagnostics.AddError("Cannot convert role name", err.Error())
 		return
@@ -149,9 +148,7 @@ func (r roleResource) Read(ctx context.Context, req tfsdk.ReadResourceRequest, r
 	}
 
 	if len(result.Rows) == 0 {
-		data.Id.Null = true
-		diags = resp.State.Set(ctx, &data)
-		resp.Diagnostics.Append(diags...)
+		resp.State.RemoveResource(ctx)
 		return
 	}
 
@@ -204,24 +201,44 @@ func (r roleResource) Read(ctx context.Context, req tfsdk.ReadResourceRequest, r
 }
 
 func (r roleResource) Update(ctx context.Context, req tfsdk.UpdateResourceRequest, resp *tfsdk.UpdateResourceResponse) {
-	var data roleResourceData
+	var plan, state roleResourceData
 
-	diags := req.Plan.Get(ctx, &data)
+	diags := req.Plan.Get(ctx, &plan)
 	resp.Diagnostics.Append(diags...)
 
 	if resp.Diagnostics.HasError() {
 		return
 	}
 
-	// If applicable, this is a great opportunity to initialize any necessary
-	// provider client data and make a call using it.
-	// example, err := d.provider.client.UpdateExample(...)
-	// if err != nil {
-	//     resp.Diagnostics.AddError("Client Error", fmt.Sprintf("Unable to update example, got error: %s", err))
-	//     return
-	// }
+	diags = req.State.Get(ctx, &state)
+	resp.Diagnostics.Append(diags...)
 
-	diags = resp.State.Set(ctx, &data)
+	if resp.Diagnostics.HasError() {
+		return
+	}
+
+	var stmt qb.Builder
+	stmt.Appendf("ALTER ROLE %s", qb.QName(plan.Id.Value))
+	if !plan.Login.Equal(state.Login) {
+		stmt.Once("with", " WITH ", " AND ")
+		stmt.Appendf("LOGIN = %s", qb.Bool(plan.Login.Value))
+	}
+	if !plan.Superuser.Equal(state.Superuser) {
+		stmt.Once("with", " WITH ", " AND ")
+		stmt.Appendf("SUPERUSER = %s", qb.Bool(plan.Superuser.Value))
+	}
+	if !plan.Password.Equal(state.Password) && !plan.Password.IsNull() {
+		stmt.Once("with", " WITH ", " AND ")
+		stmt.Appendf("PASSWORD = %s", qb.String(plan.Password.Value))
+	}
+
+	_, err := r.provider.execute(stmt.String(), nil)
+	if err != nil {
+		resp.Diagnostics.AddError("error altering role", err.Error())
+		return
+	}
+
+	diags = resp.State.Set(ctx, &plan)
 	resp.Diagnostics.Append(diags...)
 }
 
@@ -235,13 +252,14 @@ func (r roleResource) Delete(ctx context.Context, req tfsdk.DeleteResourceReques
 		return
 	}
 
-	// If applicable, this is a great opportunity to initialize any necessary
-	// provider client data and make a call using it.
-	// example, err := d.provider.client.DeleteExample(...)
-	// if err != nil {
-	//     resp.Diagnostics.AddError("Client Error", fmt.Sprintf("Unable to delete example, got error: %s", err))
-	//     return
-	// }
+	var stmt qb.Builder
+	stmt.Appendf("DROP ROLE %s", qb.QName(data.Id.Value))
+
+	_, err := r.provider.execute(stmt.String(), nil)
+	if err != nil {
+		resp.Diagnostics.AddError("error dropping role", err.Error())
+		return
+	}
 }
 
 func (r roleResource) ImportState(ctx context.Context, req tfsdk.ImportResourceStateRequest, resp *tfsdk.ImportResourceStateResponse) {

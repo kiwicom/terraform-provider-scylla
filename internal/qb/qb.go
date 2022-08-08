@@ -7,7 +7,8 @@ import (
 
 // Builder builds CQL statements.
 type Builder struct {
-	stmt strings.Builder
+	stmt    strings.Builder
+	onceMap map[string]struct{}
 }
 
 // Appendf appends a snippet of CQL to the query.
@@ -18,6 +19,26 @@ func (b *Builder) Appendf(format string, a ...CQL) {
 		cqls[i] = string(a[i])
 	}
 	b.stmt.WriteString(fmt.Sprintf(format, cqls...))
+}
+
+// Append a CQL snippet to the Builder.
+func (b *Builder) Append(a ...CQL) {
+	for i := range a {
+		b.stmt.WriteString(string(a[i]))
+	}
+}
+
+// Once per key append text, otherwise append alt.
+func (b *Builder) Once(key string, text, alt CQL) {
+	if b.onceMap == nil {
+		b.onceMap = make(map[string]struct{})
+	}
+	if _, ok := b.onceMap[key]; ok {
+		b.Append(alt)
+		return
+	}
+	b.onceMap[key] = struct{}{}
+	b.Append(text)
 }
 
 func (b *Builder) String() string {
