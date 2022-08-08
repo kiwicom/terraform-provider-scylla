@@ -2,6 +2,7 @@ package qb
 
 import (
 	"fmt"
+	"strconv"
 	"strings"
 )
 
@@ -71,4 +72,9 @@ func QName(s string) CQL {
 	sb.WriteString(strings.ReplaceAll(s, "\"", "\"\""))
 	sb.WriteString("\"")
 	return CQL(sb.String())
+}
+
+// Int returns CQL int literal.
+func Int(i int) CQL {
+	return CQL(strconv.Itoa(i))
 }

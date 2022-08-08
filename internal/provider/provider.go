@@ -3,11 +3,12 @@ package provider
 import (
 	"context"
 	"fmt"
+	"net"
+	"strings"
+
 	"github.com/hashicorp/terraform-plugin-framework/path"
 	"github.com/scylladb/scylla-go-driver/frame"
 	"github.com/scylladb/scylla-go-driver/transport"
-	"net"
-	"strings"
 
 	"github.com/hashicorp/terraform-plugin-framework/diag"
 	"github.com/hashicorp/terraform-plugin-framework/tfsdk"
@@ -90,8 +91,9 @@ func addDefaultPort(hostport string) string {
 
 func (p *provider) GetResources(ctx context.Context) (map[string]tfsdk.ResourceType, diag.Diagnostics) {
 	return map[string]tfsdk.ResourceType{
-		"scylla_example": exampleResourceType{},
-		"scylla_role":    roleResourceType{},
+		"scylla_example":       exampleResourceType{},
+		"scylla_role":          roleResourceType{},
+		"scylla_service_level": serviceLevelResourceType{},
 	}, nil
 }
 
@@ -196,4 +198,13 @@ func convertProviderType(in tfsdk.Provider) (provider, diag.Diagnostics) {
 	}
 
 	return *p, diags
+}
+
+func findColumn(name string, colSpec []frame.ColumnSpec) (int, error) {
+	for i := range colSpec {
+		if colSpec[i].Name == name {
+			return i, nil
+		}
+	}
+	return -1, fmt.Errorf("column %q not found in result set", name)
 }
