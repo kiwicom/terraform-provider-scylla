@@ -76,4 +76,4 @@ require (
 	gopkg.in/yaml.v3 v3.0.1 // indirect
 )
 
-replace github.com/scylladb/scylla-go-driver => /home/martin/Projects/scylla-go-driver
+replace github.com/scylladb/scylla-go-driver => github.com/martin-sucha/scylla-go-driver v0.0.0-20220807144258-d3b83e622709
