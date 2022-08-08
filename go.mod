@@ -1,4 +1,4 @@
-module github.com/martin-sucha/terraform-provider-scylla
+module github.com/kiwicom/terraform-provider-scylla
 
 go 1.19
 

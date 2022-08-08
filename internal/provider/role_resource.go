@@ -3,15 +3,16 @@ package provider
 import (
 	"context"
 	"fmt"
+	"strings"
+
 	"github.com/hashicorp/terraform-plugin-framework/diag"
 	"github.com/hashicorp/terraform-plugin-framework/path"
 	"github.com/hashicorp/terraform-plugin-framework/tfsdk"
 	"github.com/hashicorp/terraform-plugin-framework/types"
 	"github.com/hashicorp/terraform-plugin-log/tflog"
-	"github.com/martin-sucha/terraform-provider-scylla/internal/qb"
+	"github.com/kiwicom/terraform-provider-scylla/internal/qb"
 	"github.com/scylladb/scylla-go-driver/frame"
 	"golang.org/x/crypto/bcrypt"
-	"strings"
 )
 
 // Ensure provider defined types fully satisfy framework interfaces

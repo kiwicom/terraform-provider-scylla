@@ -6,7 +6,7 @@ import (
 	"log"
 
 	"github.com/hashicorp/terraform-plugin-framework/providerserver"
-	"github.com/martin-sucha/terraform-provider-scylla/internal/provider"
+	"github.com/kiwicom/terraform-provider-scylla/internal/provider"
 )
 
 // Run "go generate" to format example terraform files and generate the docs for the registry/website
@@ -36,7 +36,7 @@ func main() {
 
 	opts := providerserver.ServeOpts{
 		// TODO: Update this string with the published name of your provider.
-		Address: "registry.terraform.io/martin-sucha/scylla",
+		Address: "registry.terraform.io/kiwicom/scylla",
 		Debug:   debug,
 	}
 

@@ -1,7 +1,7 @@
 terraform {
   required_providers {
     scylla = {
-      source  = "martin-sucha/scylla"
+      source  = "kiwicom/scylla"
       version = "~> 1.0"
     }
   }
