@@ -17,7 +17,7 @@ func (b *Builder) Appendf(format string, a ...CQL) {
 	for i := range a {
 		cqls[i] = string(a[i])
 	}
-	b.stmt.WriteString(fmt.Sprintf(format, cqls))
+	b.stmt.WriteString(fmt.Sprintf(format, cqls...))
 }
 
 func (b *Builder) String() string {
