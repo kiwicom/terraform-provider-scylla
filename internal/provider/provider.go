@@ -94,6 +94,7 @@ func (p *provider) GetResources(ctx context.Context) (map[string]tfsdk.ResourceT
 		"scylla_example":       exampleResourceType{},
 		"scylla_role":          roleResourceType{},
 		"scylla_service_level": serviceLevelResourceType{},
+		"scylla_table_grant":   tableGrantResourceType{},
 	}, nil
 }
 
