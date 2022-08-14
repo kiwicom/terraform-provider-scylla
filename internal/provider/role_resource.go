@@ -10,9 +10,10 @@ import (
 	"github.com/hashicorp/terraform-plugin-framework/tfsdk"
 	"github.com/hashicorp/terraform-plugin-framework/types"
 	"github.com/hashicorp/terraform-plugin-log/tflog"
-	"github.com/kiwicom/terraform-provider-scylla/internal/qb"
 	"github.com/scylladb/scylla-go-driver/frame"
 	"golang.org/x/crypto/bcrypt"
+
+	"github.com/kiwicom/terraform-provider-scylla/internal/qb"
 )
 
 // Ensure provider defined types fully satisfy framework interfaces
@@ -64,6 +65,11 @@ func (t roleResourceType) GetSchema(ctx context.Context) (tfsdk.Schema, diag.Dia
 				},
 				Computed: true,
 			},
+			"service_level": {
+				MarkdownDescription: "Name of the service level attached to this role.",
+				Optional:            true,
+				Type:                types.StringType,
+			},
 		},
 	}, nil
 }
@@ -77,11 +83,12 @@ func (t roleResourceType) NewResource(ctx context.Context, in tfsdk.Provider) (t
 }
 
 type roleResourceData struct {
-	Name      types.String `tfsdk:"name"`
-	Id        types.String `tfsdk:"id"`
-	Login     types.Bool   `tfsdk:"login"`
-	Superuser types.Bool   `tfsdk:"superuser"`
-	Password  types.String `tfsdk:"password"`
+	Name         types.String `tfsdk:"name"`
+	Id           types.String `tfsdk:"id"`
+	Login        types.Bool   `tfsdk:"login"`
+	Superuser    types.Bool   `tfsdk:"superuser"`
+	Password     types.String `tfsdk:"password"`
+	ServiceLevel types.String `tfsdk:"service_level"`
 }
 
 type roleResource struct {
@@ -118,6 +125,29 @@ func (r roleResource) Create(ctx context.Context, req tfsdk.CreateResourceReques
 	// see https://pkg.go.dev/github.com/hashicorp/terraform-plugin-log/tflog
 	// for more information
 	tflog.Trace(ctx, "created role")
+
+	dataWithoutSL := data
+	dataWithoutSL.ServiceLevel = types.String{Null: true}
+
+	diags = resp.State.Set(ctx, &dataWithoutSL)
+	resp.Diagnostics.Append(diags...)
+
+	if diags.HasError() {
+		return
+	}
+
+	if data.ServiceLevel.Value == "" {
+		return
+	}
+
+	var slStmt qb.Builder
+	slStmt.Appendf("ATTACH SERVICE LEVEL %s TO %s",
+		qb.QName(data.ServiceLevel.Value), qb.QName(data.Name.Value))
+	_, err = r.provider.execute(slStmt.String(), nil)
+	if err != nil {
+		resp.Diagnostics.AddError("Error attaching service level", err.Error())
+		return
+	}
 
 	diags = resp.State.Set(ctx, &data)
 	resp.Diagnostics.Append(diags...)
@@ -192,7 +222,32 @@ func (r roleResource) Read(ctx context.Context, req tfsdk.ReadResourceRequest, r
 			// Scheme not supported.
 			// Use password from state.
 		}
+	}
 
+	var slStmt qb.Builder
+	slStmt.Appendf("LIST ATTACHED SERVICE LEVEL OF %s", qb.QName(data.Name.Value))
+	slResult, err := r.provider.execute(slStmt.String(), nil)
+	if err != nil {
+		resp.Diagnostics.AddError("Query error",
+			fmt.Sprintf("Unable to read attached service level:\n%s\n%s", slStmt.String(), err))
+		return
+	}
+
+	data.ServiceLevel = types.String{Null: true}
+	if len(slResult.Rows) > 0 {
+		colSL, err := findColumn("service_level", slResult.ColSpec)
+		if err != nil {
+			resp.Diagnostics.AddError("Query error",
+				fmt.Sprintf("Unable to read attached service level: %s", err))
+			return
+		}
+		sl, err := slResult.Rows[0][colSL].AsText()
+		if err != nil {
+			resp.Diagnostics.AddError("Query error",
+				fmt.Sprintf("Unable to read attached service level: %s", err))
+			return
+		}
+		data.ServiceLevel = types.String{Value: sl}
 	}
 
 	diags = resp.State.Set(ctx, &data)
@@ -237,7 +292,23 @@ func (r roleResource) Update(ctx context.Context, req tfsdk.UpdateResourceReques
 		return
 	}
 
-	diags = resp.State.Set(ctx, &plan)
+	if !plan.ServiceLevel.Equal(state.ServiceLevel) {
+		var slStmt qb.Builder
+		if plan.ServiceLevel.Value != "" {
+			slStmt.Appendf("ATTACH SERVICE LEVEL %s TO %s",
+				qb.QName(plan.ServiceLevel.Value), qb.QName(plan.Name.Value))
+		} else {
+			slStmt.Appendf("DETACH SERVICE LEVEL FROM %s", qb.QName(plan.Name.Value))
+		}
+
+		_, err = r.provider.execute(slStmt.String(), nil)
+		if err != nil {
+			resp.Diagnostics.AddError("Error updating service level attachment", err.Error())
+			return
+		}
+	}
+
+	diags = resp.State.Set(ctx, plan)
 	resp.Diagnostics.Append(diags...)
 }
 
