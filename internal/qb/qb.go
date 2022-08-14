@@ -78,3 +78,7 @@ func QName(s string) CQL {
 func Int(i int) CQL {
 	return CQL(strconv.Itoa(i))
 }
+
+func ToUpper(c CQL) CQL {
+	return CQL(strings.ToUpper(string(c)))
+}

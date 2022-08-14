@@ -7,12 +7,15 @@ import (
 	"strings"
 
 	"github.com/hashicorp/terraform-plugin-framework/path"
+	"github.com/hashicorp/terraform-plugin-log/tflog"
 	"github.com/scylladb/scylla-go-driver/frame"
 	"github.com/scylladb/scylla-go-driver/transport"
 
 	"github.com/hashicorp/terraform-plugin-framework/diag"
 	"github.com/hashicorp/terraform-plugin-framework/tfsdk"
 	"github.com/hashicorp/terraform-plugin-framework/types"
+
+	"github.com/kiwicom/terraform-provider-scylla/internal/qb"
 )
 
 // Ensure provider defined types fully satisfy framework interfaces
@@ -91,10 +94,11 @@ func addDefaultPort(hostport string) string {
 
 func (p *provider) GetResources(ctx context.Context) (map[string]tfsdk.ResourceType, diag.Diagnostics) {
 	return map[string]tfsdk.ResourceType{
-		"scylla_example":       exampleResourceType{},
-		"scylla_role":          roleResourceType{},
-		"scylla_service_level": serviceLevelResourceType{},
-		"scylla_table_grant":   tableGrantResourceType{},
+		"scylla_example":        exampleResourceType{},
+		"scylla_role":           roleResourceType{},
+		"scylla_service_level":  serviceLevelResourceType{},
+		"scylla_table_grant":    tableGrantResourceType{},
+		"scylla_keyspace_grant": keyspaceGrantResourceType{},
 	}, nil
 }
 
@@ -208,4 +212,152 @@ func findColumn(name string, colSpec []frame.ColumnSpec) (int, error) {
 		}
 	}
 	return -1, fmt.Errorf("column %q not found in result set", name)
+}
+
+type grantResourceData interface {
+	// resource name used in grant authorization statements, for example "keyspace x".
+	// https://docs.scylladb.com/stable/operating-scylla/security/authorization.html#permissions
+	resource() qb.CQL
+
+	// listResource is what is printed in list permission statement.
+	listResource() string
+
+	// permission that should be granted.
+	permission() qb.CQL
+
+	// grantee is role name to grant permission to.
+	grantee() string
+
+	// validate the model.
+	validate() (diags diag.Diagnostics)
+}
+
+func (p *provider) createGrant(ctx context.Context, req tfsdk.CreateResourceRequest, resp *tfsdk.CreateResourceResponse,
+	data grantResourceData) {
+	diags := req.Config.Get(ctx, data)
+	diags = append(diags, data.validate()...)
+	resp.Diagnostics.Append(diags...)
+
+	if resp.Diagnostics.HasError() {
+		return
+	}
+
+	perm := qb.ToUpper(data.permission())
+
+	var stmt qb.Builder
+	stmt.Appendf("GRANT %s ON %s TO %s", perm, data.resource(), qb.QName(data.grantee()))
+
+	_, err := p.execute(stmt.String(), nil)
+	if err != nil {
+		resp.Diagnostics.AddError("error granting", fmt.Sprintf("%s\n\n%s", stmt.String(), err.Error()))
+		return
+	}
+
+	tflog.Trace(ctx, "created grant")
+
+	diags = resp.State.Set(ctx, data)
+	resp.Diagnostics.Append(diags...)
+}
+
+func (p *provider) readGrant(ctx context.Context, req tfsdk.ReadResourceRequest, resp *tfsdk.ReadResourceResponse,
+	data grantResourceData) {
+	diags := req.State.Get(ctx, data)
+	diags = append(diags, data.validate()...)
+	resp.Diagnostics.Append(diags...)
+
+	if resp.Diagnostics.HasError() {
+		return
+	}
+
+	upperPermission := qb.ToUpper(data.permission())
+
+	var stmt qb.Builder
+	stmt.Appendf("LIST %s PERMISSION ON %s OF %s", upperPermission,
+		data.resource(), qb.QName(data.grantee()))
+
+	result, err := p.execute(stmt.String(), nil)
+	if err != nil {
+		if strings.Contains(err.Error(), "doesn't exist") {
+			// role or table does not exist, so the grant does not exist either.
+			resp.State.RemoveResource(ctx)
+			return
+		}
+		resp.Diagnostics.AddError("Query error", fmt.Sprintf("Unable to read grant:\n%s\n%s",
+			stmt.String(), err))
+		return
+	}
+
+	colRole, err := findColumn("role", result.ColSpec)
+	if err != nil {
+		resp.Diagnostics.AddError("Query error", err.Error())
+		return
+	}
+
+	colResource, err := findColumn("resource", result.ColSpec)
+	if err != nil {
+		resp.Diagnostics.AddError("Query error", err.Error())
+		return
+	}
+
+	colPermission, err := findColumn("permission", result.ColSpec)
+	if err != nil {
+		resp.Diagnostics.AddError("Query error", err.Error())
+		return
+	}
+
+	found := false
+
+	expectedResource := data.listResource()
+	for i := range result.Rows {
+		role, err := result.Rows[i][colRole].AsText()
+		if err != nil {
+			resp.Diagnostics.AddError("Query error", err.Error())
+			return
+		}
+		resource, err := result.Rows[i][colResource].AsText()
+		if err != nil {
+			resp.Diagnostics.AddError("Query error", err.Error())
+			return
+		}
+		permission, err := result.Rows[i][colPermission].AsText()
+		if err != nil {
+			resp.Diagnostics.AddError("Query error", err.Error())
+			return
+		}
+		if role == data.grantee() && resource == expectedResource && permission == string(upperPermission) {
+			found = true
+			break
+		}
+	}
+
+	if !found {
+		resp.State.RemoveResource(ctx)
+		return
+	}
+
+	diags = resp.State.Set(ctx, &data)
+	resp.Diagnostics.Append(diags...)
+}
+
+func (p *provider) deleteGrant(ctx context.Context, req tfsdk.DeleteResourceRequest, resp *tfsdk.DeleteResourceResponse,
+	data grantResourceData) {
+
+	diags := req.State.Get(ctx, data)
+	diags = append(diags, data.validate()...)
+	resp.Diagnostics.Append(diags...)
+
+	if resp.Diagnostics.HasError() {
+		return
+	}
+
+	perm := qb.ToUpper(data.permission())
+
+	var stmt qb.Builder
+	stmt.Appendf("REVOKE %s ON %s FROM %s", perm, data.resource(), qb.QName(data.grantee()))
+
+	_, err := p.execute(stmt.String(), nil)
+	if err != nil {
+		resp.Diagnostics.AddError("Error revoking", fmt.Sprintf("%s\n\n%s", stmt.String(), err.Error()))
+		return
+	}
 }

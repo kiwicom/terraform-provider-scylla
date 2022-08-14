@@ -51,7 +51,7 @@ func (t roleResourceType) GetSchema(ctx context.Context) (tfsdk.Schema, diag.Dia
 				Type:                types.BoolType,
 			},
 			"superuser": {
-				MarkdownDescription: "Indicates whether the user has all permissions. Defaults to false.",
+				MarkdownDescription: "Indicates whether the user has all tablePermissions. Defaults to false.",
 				Required:            true,
 				Type:                types.BoolType,
 			},
