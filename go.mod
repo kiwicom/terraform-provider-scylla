@@ -8,7 +8,7 @@ require (
 	github.com/hashicorp/terraform-plugin-go v0.13.0
 	github.com/hashicorp/terraform-plugin-log v0.7.0
 	github.com/hashicorp/terraform-plugin-sdk/v2 v2.20.0
-	github.com/scylladb/scylla-go-driver v0.0.0-00010101000000-000000000000
+	github.com/scylladb/scylla-go-driver v0.0.0-20220902130815-885964b77423
 	github.com/stretchr/testify v1.7.2
 	golang.org/x/crypto v0.0.0-20220622213112-05595931fe9d
 )
@@ -75,5 +75,3 @@ require (
 	google.golang.org/protobuf v1.28.0 // indirect
 	gopkg.in/yaml.v3 v3.0.1 // indirect
 )
-
-replace github.com/scylladb/scylla-go-driver => github.com/kiwicom/scylla-go-driver v0.0.0-20220809201315-987709267d10

@@ -131,13 +131,13 @@ func (p *provider) GetSchema(ctx context.Context) (tfsdk.Schema, diag.Diagnostic
 	}, nil
 }
 
-func (p *provider) initConn() error {
+func (p *provider) initConn(ctx context.Context) error {
 	if p.conn != nil {
 		return nil
 	}
 	var lastErr error
 	for _, hostport := range p.hosts {
-		conn, err := transport.OpenConn(hostport, nil, p.connConfig)
+		conn, err := transport.OpenConn(ctx, hostport, nil, p.connConfig)
 		if err != nil {
 			lastErr = err
 			continue
@@ -148,8 +148,8 @@ func (p *provider) initConn() error {
 	return lastErr
 }
 
-func (p *provider) execute(query string, values []frame.CqlValue) (transport.QueryResult, error) {
-	err := p.initConn()
+func (p *provider) execute(ctx context.Context, query string, values []frame.CqlValue) (transport.QueryResult, error) {
+	err := p.initConn(ctx)
 	if err != nil {
 		return transport.QueryResult{}, err
 	}
@@ -165,7 +165,7 @@ func (p *provider) execute(query string, values []frame.CqlValue) (transport.Que
 		Consistency: frame.ONE,
 	}
 
-	return p.conn.Query(stmt, nil)
+	return p.conn.Query(ctx, stmt, nil)
 }
 
 func New(version string) func() tfsdk.Provider {
@@ -247,7 +247,7 @@ func (p *provider) createGrant(ctx context.Context, req tfsdk.CreateResourceRequ
 	var stmt qb.Builder
 	stmt.Appendf("GRANT %s ON %s TO %s", perm, data.resource(), qb.QName(data.grantee()))
 
-	_, err := p.execute(stmt.String(), nil)
+	_, err := p.execute(ctx, stmt.String(), nil)
 	if err != nil {
 		resp.Diagnostics.AddError("error granting", fmt.Sprintf("%s\n\n%s", stmt.String(), err.Error()))
 		return
@@ -275,7 +275,7 @@ func (p *provider) readGrant(ctx context.Context, req tfsdk.ReadResourceRequest,
 	stmt.Appendf("LIST %s PERMISSION ON %s OF %s", upperPermission,
 		data.resource(), qb.QName(data.grantee()))
 
-	result, err := p.execute(stmt.String(), nil)
+	result, err := p.execute(ctx, stmt.String(), nil)
 	if err != nil {
 		if strings.Contains(err.Error(), "doesn't exist") {
 			// role or table does not exist, so the grant does not exist either.
@@ -355,7 +355,7 @@ func (p *provider) deleteGrant(ctx context.Context, req tfsdk.DeleteResourceRequ
 	var stmt qb.Builder
 	stmt.Appendf("REVOKE %s ON %s FROM %s", perm, data.resource(), qb.QName(data.grantee()))
 
-	_, err := p.execute(stmt.String(), nil)
+	_, err := p.execute(ctx, stmt.String(), nil)
 	if err != nil {
 		resp.Diagnostics.AddError("Error revoking", fmt.Sprintf("%s\n\n%s", stmt.String(), err.Error()))
 		return

@@ -140,7 +140,7 @@ func (r serviceLevelResource) Create(ctx context.Context, req tfsdk.CreateResour
 		stmt.Appendf("TIMEOUT = %s", qb.String(fmt.Sprintf("%dms", data.TimeoutMilliseconds.Value)))
 	}
 
-	_, err := r.provider.execute(stmt.String(), nil)
+	_, err := r.provider.execute(ctx, stmt.String(), nil)
 	if err != nil {
 		resp.Diagnostics.AddError("error creating service level", err.Error())
 		return
@@ -182,7 +182,7 @@ func (r serviceLevelResource) readData(ctx context.Context, data *serviceLevelRe
 	var stmt qb.Builder
 	stmt.Appendf("LIST SERVICE LEVEL %s", qb.QName(data.Id.Value))
 
-	result, err := r.provider.execute(stmt.String(), nil)
+	result, err := r.provider.execute(ctx, stmt.String(), nil)
 	if err != nil {
 		return false, diag.Diagnostics{
 			diag.NewErrorDiagnostic("Query error", fmt.Sprintf("Unable to read service level info: %s", err)),
@@ -296,7 +296,7 @@ func (r serviceLevelResource) Update(ctx context.Context, req tfsdk.UpdateResour
 		stmt.Appendf("TIMEOUT = %s", qb.String(fmt.Sprintf("%dms", plan.TimeoutMilliseconds.Value)))
 	}
 
-	_, err := r.provider.execute(stmt.String(), nil)
+	_, err := r.provider.execute(ctx, stmt.String(), nil)
 	if err != nil {
 		resp.Diagnostics.AddError("Error altering role", err.Error())
 		return
@@ -327,7 +327,7 @@ func (r serviceLevelResource) Delete(ctx context.Context, req tfsdk.DeleteResour
 	var stmt qb.Builder
 	stmt.Appendf("DROP SERVICE LEVEL %s", qb.QName(data.Id.Value))
 
-	_, err := r.provider.execute(stmt.String(), nil)
+	_, err := r.provider.execute(ctx, stmt.String(), nil)
 	if err != nil {
 		resp.Diagnostics.AddError("Error dropping service level", err.Error())
 		return

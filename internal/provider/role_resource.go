@@ -115,7 +115,7 @@ func (r roleResource) Create(ctx context.Context, req tfsdk.CreateResourceReques
 		stmt.Appendf(" AND PASSWORD = %s", qb.String(data.Password.Value))
 	}
 
-	_, err := r.provider.execute(stmt.String(), nil)
+	_, err := r.provider.execute(ctx, stmt.String(), nil)
 	if err != nil {
 		resp.Diagnostics.AddError("error creating role", err.Error())
 		return
@@ -143,7 +143,7 @@ func (r roleResource) Create(ctx context.Context, req tfsdk.CreateResourceReques
 	var slStmt qb.Builder
 	slStmt.Appendf("ATTACH SERVICE LEVEL %s TO %s",
 		qb.QName(data.ServiceLevel.Value), qb.QName(data.Name.Value))
-	_, err = r.provider.execute(slStmt.String(), nil)
+	_, err = r.provider.execute(ctx, slStmt.String(), nil)
 	if err != nil {
 		resp.Diagnostics.AddError("Error attaching service level", err.Error())
 		return
@@ -169,7 +169,7 @@ func (r roleResource) Read(ctx context.Context, req tfsdk.ReadResourceRequest, r
 		return
 	}
 
-	result, err := r.provider.execute("SELECT can_login, is_superuser, salted_hash FROM system_auth.roles WHERE role = ?",
+	result, err := r.provider.execute(ctx, "SELECT can_login, is_superuser, salted_hash FROM system_auth.roles WHERE role = ?",
 		[]frame.CqlValue{cqlName})
 	if err != nil {
 		resp.Diagnostics.AddError("Query error", fmt.Sprintf("Unable to read role info: %s", err))
@@ -226,7 +226,7 @@ func (r roleResource) Read(ctx context.Context, req tfsdk.ReadResourceRequest, r
 
 	var slStmt qb.Builder
 	slStmt.Appendf("LIST ATTACHED SERVICE LEVEL OF %s", qb.QName(data.Name.Value))
-	slResult, err := r.provider.execute(slStmt.String(), nil)
+	slResult, err := r.provider.execute(ctx, slStmt.String(), nil)
 	if err != nil {
 		resp.Diagnostics.AddError("Query error",
 			fmt.Sprintf("Unable to read attached service level:\n%s\n%s", slStmt.String(), err))
@@ -286,7 +286,7 @@ func (r roleResource) Update(ctx context.Context, req tfsdk.UpdateResourceReques
 		stmt.Appendf("PASSWORD = %s", qb.String(plan.Password.Value))
 	}
 
-	_, err := r.provider.execute(stmt.String(), nil)
+	_, err := r.provider.execute(ctx, stmt.String(), nil)
 	if err != nil {
 		resp.Diagnostics.AddError("error altering role", err.Error())
 		return
@@ -301,7 +301,7 @@ func (r roleResource) Update(ctx context.Context, req tfsdk.UpdateResourceReques
 			slStmt.Appendf("DETACH SERVICE LEVEL FROM %s", qb.QName(plan.Name.Value))
 		}
 
-		_, err = r.provider.execute(slStmt.String(), nil)
+		_, err = r.provider.execute(ctx, slStmt.String(), nil)
 		if err != nil {
 			resp.Diagnostics.AddError("Error updating service level attachment", err.Error())
 			return
@@ -325,7 +325,7 @@ func (r roleResource) Delete(ctx context.Context, req tfsdk.DeleteResourceReques
 	var stmt qb.Builder
 	stmt.Appendf("DROP ROLE %s", qb.QName(data.Id.Value))
 
-	_, err := r.provider.execute(stmt.String(), nil)
+	_, err := r.provider.execute(ctx, stmt.String(), nil)
 	if err != nil {
 		resp.Diagnostics.AddError("error dropping role", err.Error())
 		return
