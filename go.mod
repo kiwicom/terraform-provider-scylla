@@ -8,7 +8,7 @@ require (
 	github.com/hashicorp/terraform-plugin-go v0.14.3
 	github.com/hashicorp/terraform-plugin-log v0.7.0
 	github.com/hashicorp/terraform-plugin-sdk/v2 v2.20.0
-	github.com/scylladb/scylla-go-driver v0.0.0-20220902130815-885964b77423
+	github.com/scylladb/scylla-go-driver v0.0.0-20221013134735-ce81923df69a
 	github.com/stretchr/testify v1.8.0
 	golang.org/x/crypto v0.0.0-20220622213112-05595931fe9d
 )

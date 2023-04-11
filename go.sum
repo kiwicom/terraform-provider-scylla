@@ -200,8 +200,8 @@ github.com/prometheus/client_model v0.0.0-20190812154241-14fe0d1b01d4/go.mod h1:
 github.com/rogpeppe/go-internal v1.6.1 h1:/FiVV8dS/e+YqF2JvO3yXRFbBLTIuSDkuC7aBOAvL+k=
 github.com/russross/blackfriday v1.6.0 h1:KqfZb0pUVN2lYqZUYRddxF4OR8ZMURnJIG5Y3VRLtww=
 github.com/russross/blackfriday v1.6.0/go.mod h1:ti0ldHuxg49ri4ksnFxlkCfN+hvslNlmVHqNRXXJNAY=
-github.com/scylladb/scylla-go-driver v0.0.0-20220902130815-885964b77423 h1:mwqB3ujKk0Q1EGpFXMVnk777/HJXvXpdeidbsYOgNFU=
-github.com/scylladb/scylla-go-driver v0.0.0-20220902130815-885964b77423/go.mod h1:4szg2aNdnU8KlAY9PmgAuu5bxqklsHXv8IAfyYskq5A=
+github.com/scylladb/scylla-go-driver v0.0.0-20221013134735-ce81923df69a h1:w2RGi/in0POW+7tF3PxjJukuHJVqvQRD2O+09YsYmaU=
+github.com/scylladb/scylla-go-driver v0.0.0-20221013134735-ce81923df69a/go.mod h1:4szg2aNdnU8KlAY9PmgAuu5bxqklsHXv8IAfyYskq5A=
 github.com/sebdah/goldie v1.0.0/go.mod h1:jXP4hmWywNEwZzhMuv2ccnqTSFpuq8iyQhtQdkkZBH4=
 github.com/sergi/go-diff v1.1.0/go.mod h1:STckp+ISIX8hZLjrqAeVduY0gWCT9IjLuqbuNXdaHfM=
 github.com/sergi/go-diff v1.2.0 h1:XU+rvMAioB0UC3q1MFrIQy4Vo5/4VsRDQQXHsEya6xQ=
