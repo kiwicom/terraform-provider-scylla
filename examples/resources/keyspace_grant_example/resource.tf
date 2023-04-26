@@ -8,25 +8,25 @@ terraform {
 }
 
 provider "scylla" {
-  hosts = "localhost"
+  hosts    = "localhost"
   username = "cassandra"
   password = "cassandra"
 }
 
 resource "scylla_role" "role3" {
-  name = "role3"
-  login = false
+  name      = "role3"
+  login     = false
   superuser = false
 }
 
 resource "scylla_role" "role4" {
-  name = "role4"
-  login = false
+  name      = "role4"
+  login     = false
   superuser = false
 }
 
 resource "scylla_keyspace_grant" "example" {
-  keyspace = "system_traces"
-  grantee = scylla_role.role3.name
+  keyspace   = "system_traces"
+  grantee    = scylla_role.role3.name
   permission = "SELECT"
 }

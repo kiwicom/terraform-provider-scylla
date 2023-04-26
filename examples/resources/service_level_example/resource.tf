@@ -8,14 +8,14 @@ terraform {
 }
 
 provider "scylla" {
-  hosts = "localhost"
+  hosts    = "localhost"
   username = "cassandra"
   password = "cassandra"
 }
 
 resource "scylla_service_level" "example" {
-  name = "sl-example"
-  shares = 900
-  workload_type = "interactive"
+  name                 = "sl-example"
+  shares               = 900
+  workload_type        = "interactive"
   timeout_milliseconds = "300"
 }

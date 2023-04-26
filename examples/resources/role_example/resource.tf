@@ -8,14 +8,14 @@ terraform {
 }
 
 provider "scylla" {
-  hosts = "localhost"
+  hosts    = "localhost"
   username = "cassandra"
   password = "cassandra"
 }
 
 resource "scylla_role" "example" {
-  name = "role-example"
-  login = false
+  name      = "role-example"
+  login     = false
   superuser = false
 }
 
@@ -28,9 +28,9 @@ resource "scylla_service_level" "sl2" {
 }
 
 resource "scylla_role" "with_password_and_sl" {
-  name = "role-pwd"
-  login = true
-  superuser = false
-  password = "hello world"
+  name          = "role-pwd"
+  login         = true
+  superuser     = false
+  password      = "hello world"
   service_level = scylla_service_level.sl2.name
 }
